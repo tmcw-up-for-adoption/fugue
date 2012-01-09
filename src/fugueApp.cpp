@@ -10,9 +10,9 @@
 using namespace ci;
 using namespace ci::app;
 
-const int BS = 40;
-const int X = 16;
-const int Y = 8;
+const int BS = 20;
+const int X = 32;
+const int Y = 16;
 const int S = X * Y;
 
 class fugueApp : public AppCocoaTouch {
@@ -44,7 +44,7 @@ void fugueApp::setup() {
 }
 
 void fugueApp::sineWave( uint64_t inSampleOffset, uint32_t ioSampleCount, audio::Buffer32f *ioBuffer ) {
-	mPhaseAdjust = mPhaseAdjust * 0.90f + ( mFreqTarget / 44100.0f ) * 0.10f;
+    mPhaseAdjust = mFreqTarget / 44100.0f;
 	for(int i = 0; i < ioSampleCount; i++) {
 		mPhase += mPhaseAdjust;
 		mPhase = mPhase - math<float>::floor(mPhase);
@@ -60,7 +60,7 @@ void fugueApp::resize(ResizeEvent event) {
 
 void fugueApp::touchesBegan(TouchEvent event) {
     int idx = 
-      (std::floor(event.getTouches()[0].getX() / BS) * 16) +
+      (std::floor(event.getTouches()[0].getX() / BS) * X) +
     std::floor(event.getTouches()[0].getY() / BS);
     if (notes[idx] == 0) {
         notes[idx] = 1;
@@ -93,17 +93,17 @@ void fugueApp::draw() {
     gl::color(Color(1, 1, 1));
     for (int n = 0; n < S; n++) {
         if (notes[n] == 1) {
-            if (std::floor(n / 16) == hlrow) {
+            if (std::floor(n / X) == hlrow) {
                 gl::color(Color(1, 0.5, 1));
-                mFreqTarget = math<float>::clamp(((n % 16 / 16.0f)) * mMaxFreq, 0.0, mMaxFreq );
+                mFreqTarget = 440 * std::pow(2.0, ((n % X)) / 12.0);
                 std::clog << mFreqTarget << std::endl;
             }
             gl::drawSolidRect(Rectf(
-                std::floor(n / 16) * 40.0f + 1.0f,
-                std::floor(n % 16) * 40.0f + 1.0f,
-                std::floor(n / 16) * 40.0f + 40.0f,
-                std::floor(n % 16) * 40.0f + 40.0f));
-            if (std::floor(n / 16) == hlrow) gl::color(Color(1, 1, 1));
+                std::floor(n / X) * BS + 1.0f,
+                std::floor(n % X) * BS + 1.0f,
+                std::floor(n / X) * BS + BS,
+                std::floor(n % X) * BS + BS));
+            if (std::floor(n / X) == hlrow) gl::color(Color(1, 1, 1));
         }
     }
 }
