@@ -10,12 +10,11 @@
 using namespace ci;
 using namespace ci::app;
 
-const int BS = 40;
-const int X = 10;
-const int Y = 8;
+const int BS = 32;
+const double X = 10;
+const double Y = 10;
 const int S = X * Y;
-const int BPM = 60;
-const double SPB = 60 / BPM;
+const int TRANSPOSE = -5;
 
 class fugueApp : public AppCocoaTouch {
 public:
@@ -30,6 +29,12 @@ public:
 	float mFreqTarget;
 	float mPhase;
 	float mPhaseAdjust;
+    // beats per second
+    double bpm;
+    // seconds per beat
+    double spb;
+    double secs;
+    bool paused;
 	float mMaxFreq;
 private:
     std::vector<int> notes;
@@ -40,14 +45,16 @@ void fugueApp::setup() {
     mMaxFreq = 2000.0f;
 	mFreqTarget = 0.0f;
 	mPhase = 0.0f;
+    bpm = 200.0f;
 	mPhaseAdjust = 0.0f;
+    paused = false;
 	audio::Output::play(audio::createCallback(this, &fugueApp::sineWave));
     std::fill(notes.begin(), notes.end(), 0);
 }
 
 void fugueApp::sineWave( uint64_t inSampleOffset, uint32_t ioSampleCount, audio::Buffer32f *ioBuffer ) {
     mPhaseAdjust = mFreqTarget / 44100.0f;
-	for(int i = 0; i < ioSampleCount; i++) {
+	for (int i = 0; i < ioSampleCount; i++) {
 		mPhase += mPhaseAdjust;
 		mPhase = mPhase - math<float>::floor(mPhase);
 		float val = math<float>::sin(mPhase * 2.0f * M_PI);
@@ -58,40 +65,65 @@ void fugueApp::sineWave( uint64_t inSampleOffset, uint32_t ioSampleCount, audio:
 }
 
 void fugueApp::touchesBegan(TouchEvent event) {
-    int idx = 
-      (std::floor(event.getTouches()[0].getX() / BS) * X) +
-    std::floor(event.getTouches()[0].getY() / BS);
-    if (notes[idx] == 0) {
-        notes[idx] = 1;
+    double ty = event.getTouches()[0].getY();
+    double tx = event.getTouches()[0].getX();
+    if (ty > (BS * Y)) {
+        if (tx < BS) {
+            paused = !paused;
+        }
     } else {
-        notes[idx] = 0;
+        int idx = (std::floor(tx / BS) * X) +
+            std::floor(ty / BS);
+        if (notes[idx] == 0) {
+            notes[idx] = 1;
+        } else {
+            notes[idx] = 0;
+        }
     }
 }
 
 void fugueApp::draw() {
+    spb = 60.0f / bpm;
+    if (!paused) {
+        secs = getElapsedSeconds();
+    }
+    int hlrow = std::fmod(std::floor(secs / spb), Y);
+    bool blankrow = true;
+
     gl::setMatricesWindow(getWindowSize());
     gl::clear();
+
     gl::color(Color(1, 1, 1));
     
-    // std::clog << getElapsedSeconds() << std::endl;
-    
-    double secs = getElapsedSeconds();
-    int hlrow = (int) std::floor(secs / SPB) % Y;
-    
-    std::clog << fmod(secs, Y * SPB) << std::endl;
-    
+    // Draw the moving cursor
     gl::color(Color(1, 0.5, 1));
-    gl::drawSolidRect(Rectf(fmod(secs, Y * SPB) * (BS), 0, fmod(secs, Y * SPB) * (BS) + 1, BS * X));
+    gl::drawSolidRect(Rectf(fmod(secs / spb, Y) * BS, 0, fmod(secs / spb, Y) * (BS) + 1, BS * X));
     gl::color(Color(1, 1, 1));
     
-    for (int x = 0; x < X; x++) {
+    // Draw grid lines
+    for (int x = 0; x <= X; x++) {
         gl::drawSolidRect(Rectf(0, x * BS, 320.0f, x * BS + 1));
     }
     for (int y = 0; y < Y; y++) {
         gl::drawSolidRect(Rectf(y * BS, 0, y * BS + 1, BS * X));
     }
     gl::drawSolidRect(Rectf(Y * BS - 1, 0, Y * BS, BS * X));
+    
+    // Draw a play button
+    gl::color(Color(0.5, 1, 0.5));
+    gl::drawSolidRect(Rectf(0, Y * BS, BS, (Y + 1) * BS));
+    
     gl::color(Color(1, 1, 1));
+    // Find and play the note
+    for (int x = hlrow * X; x < (hlrow * X) + X; x++) {
+        if (notes[x] == 1) {
+            mFreqTarget = 440 * std::pow(2.0, ((x % (int) X) - TRANSPOSE) / 12.0);
+            blankrow = false;
+        }
+    }
+    if (blankrow) mFreqTarget = 0;
+    
+    // Draw notes
     for (int n = 0; n < S; n++) {
         if (notes[n] == 1) {
             if (std::floor(n / X) == hlrow) {
@@ -101,17 +133,16 @@ void fugueApp::draw() {
                 gl::color(Color(1, 0.5, 1));
                 gl::drawSolidRect(Rectf(
                     std::floor(n / X) * BS + 1.0f,
-                    std::floor(n % X) * BS + 1.0f,
+                    std::floor(n % (int) X) * BS + 1.0f,
                     std::floor(n / X) * BS + (BS * height),
-                    std::floor(n % X) * BS + BS));
+                    std::floor(n % (int) X) * BS + BS));
                 gl::color(Color(1, 1, 1));
-                // mFreqTarget = 440 * std::pow(2.0, ((n % X)) / 12.0);
             } else {
                 gl::drawSolidRect(Rectf(
                 std::floor(n / X) * BS + 1.0f,
-                std::floor(n % X) * BS + 1.0f,
+                std::floor(n % (int) X) * BS + 1.0f,
                 std::floor(n / X) * BS + BS,
-                std::floor(n % X) * BS + BS));
+                std::floor(n % (int) X) * BS + BS));
             }
         }
     }
