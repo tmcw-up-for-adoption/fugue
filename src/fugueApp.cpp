@@ -10,9 +10,9 @@
 using namespace ci;
 using namespace ci::app;
 
-const int BS = 32;
+const int BS = 64;
 const double X = 10;
-const double Y = 10;
+const double Y = 12;
 const int S = X * Y;
 const int TRANSPOSE = -5;
 
@@ -45,7 +45,7 @@ void fugueApp::setup() {
     mMaxFreq = 2000.0f;
 	mFreqTarget = 0.0f;
 	mPhase = 0.0f;
-    bpm = 200.0f;
+    bpm = 300.0f;
 	mPhaseAdjust = 0.0f;
     paused = false;
 	audio::Output::play(audio::createCallback(this, &fugueApp::sineWave));
@@ -70,6 +70,7 @@ void fugueApp::touchesBegan(TouchEvent event) {
     if (ty > (BS * Y)) {
         if (tx < BS) {
             paused = !paused;
+            if (paused) mFreqTarget = 0;
         }
     } else {
         int idx = (std::floor(tx / BS) * X) +
@@ -87,7 +88,7 @@ void fugueApp::draw() {
     if (!paused) {
         secs = getElapsedSeconds();
     }
-    int hlrow = std::fmod(std::floor(secs / spb), Y);
+    int hlrow = std::fmod(std::floor(secs / spb), X);
     bool blankrow = true;
 
     gl::setMatricesWindow(getWindowSize());
@@ -97,17 +98,17 @@ void fugueApp::draw() {
     
     // Draw the moving cursor
     gl::color(Color(1, 0.5, 1));
-    gl::drawSolidRect(Rectf(fmod(secs / spb, Y) * BS, 0, fmod(secs / spb, Y) * (BS) + 1, BS * X));
-    gl::color(Color(1, 1, 1));
+    gl::drawSolidRect(Rectf(fmod(secs / spb, X) * BS, 0, fmod(secs / spb, X) * (BS) + 1, BS * Y));
     
     // Draw grid lines
-    for (int x = 0; x <= X; x++) {
-        gl::drawSolidRect(Rectf(0, x * BS, 320.0f, x * BS + 1));
+    gl::color(Color(0.4, 0.4, 0.4));
+    for (int y = 0; y <= Y; y++) {
+        gl::drawSolidRect(Rectf(0, y * BS, 640.0f, y * BS + 1));
     }
-    for (int y = 0; y < Y; y++) {
-        gl::drawSolidRect(Rectf(y * BS, 0, y * BS + 1, BS * X));
+    for (int x = 0; x < X; x++) {
+        gl::drawSolidRect(Rectf(x * BS, 0, x * BS + 1, BS * Y));
     }
-    gl::drawSolidRect(Rectf(Y * BS - 1, 0, Y * BS, BS * X));
+    gl::drawSolidRect(Rectf(X * BS - 1, 0, X * BS, BS * Y));
     
     // Draw a play button
     gl::color(Color(0.5, 1, 0.5));
@@ -121,7 +122,7 @@ void fugueApp::draw() {
             blankrow = false;
         }
     }
-    if (blankrow) mFreqTarget = 0;
+    if (blankrow || paused) mFreqTarget = 0;
     
     // Draw notes
     for (int n = 0; n < S; n++) {
