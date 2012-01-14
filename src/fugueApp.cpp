@@ -12,7 +12,7 @@ using namespace ci::app;
 
 const int BS = 64;
 const double X = 10;
-const double Y = 12;
+const double Y = 14;
 const int S = X * Y;
 const int TRANSPOSE = -5;
 
@@ -50,6 +50,7 @@ void fugueApp::setup() {
     paused = false;
 	audio::Output::play(audio::createCallback(this, &fugueApp::sineWave));
     std::fill(notes.begin(), notes.end(), 0);
+    gl::setMatricesWindow(getWindowSize());
 }
 
 void fugueApp::sineWave( uint64_t inSampleOffset, uint32_t ioSampleCount, audio::Buffer32f *ioBuffer ) {
@@ -91,9 +92,7 @@ void fugueApp::draw() {
     int hlrow = std::fmod(std::floor(secs / spb), X);
     bool blankrow = true;
 
-    gl::setMatricesWindow(getWindowSize());
     gl::clear();
-
     gl::color(Color(1, 1, 1));
     
     // Draw the moving cursor
@@ -111,9 +110,15 @@ void fugueApp::draw() {
     gl::drawSolidRect(Rectf(X * BS - 1, 0, X * BS, BS * Y));
     
     // Draw a play button
-    gl::color(Color(0.5, 1, 0.5));
-    gl::drawSolidRect(Rectf(0, Y * BS, BS, (Y + 1) * BS));
-    
+    if (paused) {
+        gl::color(Color(0.5, 1, 0.5));
+    } else {
+        gl::color(Color(0.5, 0.5, 0.5));
+    }
+    gl::drawSolidRect(Rectf(0, Y * BS, BS + 1, (Y + 1) * BS + 1));
+    gl::color(Color(0, 0, 0));
+    gl::drawSolidCircle(Vec2f(BS / 2, Y * BS + (BS / 2)), BS / 4, 3);
+
     gl::color(Color(1, 1, 1));
     // Find and play the note
     for (int x = hlrow * X; x < (hlrow * X) + X; x++) {
@@ -128,17 +133,20 @@ void fugueApp::draw() {
     for (int n = 0; n < S; n++) {
         if (notes[n] == 1) {
             if (std::floor(n / X) == hlrow) {
-                double height = secs - std::floor(secs);
-                std::clog << height << std::endl;
-                std::clog << secs << std::endl;
+                double width = (secs / spb) - std::floor(secs / spb);
                 gl::color(Color(1, 0.5, 1));
                 gl::drawSolidRect(Rectf(
                     std::floor(n / X) * BS + 1.0f,
                     std::floor(n % (int) X) * BS + 1.0f,
-                    std::floor(n / X) * BS + (BS * height),
+                    std::floor(n / X) * BS + (BS * width),
                     std::floor(n % (int) X) * BS + BS));
                 gl::color(Color(1, 1, 1));
             } else {
+                if (std::floor(n / X) > hlrow) {
+                    gl::color(1, 0.2, 1);
+                } else {
+                    gl::color(1, 1, 1);
+                }
                 gl::drawSolidRect(Rectf(
                 std::floor(n / X) * BS + 1.0f,
                 std::floor(n % (int) X) * BS + 1.0f,
