@@ -28,7 +28,6 @@ public:
 	virtual void touchesBegan(TouchEvent event);
 	float mFreqTarget;
 	float mPhase;
-	float mPhaseAdjust;
     // beats per second
     double bpm;
     // seconds per beat
@@ -37,7 +36,9 @@ public:
     bool paused;
 	float mMaxFreq;
 private:
+    std::vector<int> chord;
     std::vector<int> notes;
+    std::vector<float> phases;
 };
 
 void fugueApp::setup() {
@@ -46,7 +47,6 @@ void fugueApp::setup() {
 	mFreqTarget = 0.0f;
 	mPhase = 0.0f;
     bpm = 300.0f;
-	mPhaseAdjust = 0.0f;
     paused = false;
 	audio::Output::play(audio::createCallback(this, &fugueApp::sineWave));
     std::fill(notes.begin(), notes.end(), 0);
@@ -54,14 +54,20 @@ void fugueApp::setup() {
 }
 
 void fugueApp::sineWave( uint64_t inSampleOffset, uint32_t ioSampleCount, audio::Buffer32f *ioBuffer ) {
-    mPhaseAdjust = mFreqTarget / 44100.0f;
+    phases.empty();
+    for (int i = 0; i < chord.size(); i++) {
+        phases.push_back(440 * std::pow(2.0, ((chord.at(i) % (int) X) - TRANSPOSE) / 12.0) / 44100.0f);
+    }
+    float val = 0;
 	for (int i = 0; i < ioSampleCount; i++) {
-		mPhase += mPhaseAdjust;
-		mPhase = mPhase - math<float>::floor(mPhase);
-		float val = math<float>::sin(mPhase * 2.0f * M_PI);
-		
-		ioBuffer->mData[i*ioBuffer->mNumberChannels] = val;
-		ioBuffer->mData[i*ioBuffer->mNumberChannels + 1] = val;
+        val = 0;
+        for (int j = 0; j < phases.size(); j++) {
+            mPhase += phases[j];
+            mPhase = mPhase - math<float>::floor(mPhase);
+            val += math<float>::sin(mPhase * 2.0f * M_PI);
+        }
+        ioBuffer->mData[i*ioBuffer->mNumberChannels] = val;
+        ioBuffer->mData[i*ioBuffer->mNumberChannels + 1] = val;
 	}
 }
 
@@ -121,10 +127,11 @@ void fugueApp::draw() {
 
     gl::color(Color(1, 1, 1));
     // Find and play the note
+    chord.empty();
     for (int x = hlrow * X; x < (hlrow * X) + X; x++) {
         if (notes[x] == 1) {
-            mFreqTarget = 440 * std::pow(2.0, ((x % (int) X) - TRANSPOSE) / 12.0);
             blankrow = false;
+            chord.push_back(x);
         }
     }
     if (blankrow || paused) mFreqTarget = 0;
