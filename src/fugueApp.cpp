@@ -5,27 +5,32 @@
 #include "cinder/Surface.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/Camera.h"
+#include "cinder/Capture.h"
 #include <vector>
 
 using namespace ci;
 using namespace ci::app;
+using namespace std;
 
-const int BS = 64;
-const double X = 10;
-const double Y = 14;
+const int BS = 32;
+const double X = 20;
+const double Y = 20;
 const int S = X * Y;
 const int TRANSPOSE = -5;
 
 class fugueApp : public AppCocoaTouch {
 public:
 	virtual void setup();
+    /*
     virtual void sineWave(uint64_t inSampleOffset,
       uint32_t ioSampleCount,
       audio::Buffer32f *ioBuffer);
+     */
 	virtual void resize(ResizeEvent event);
 	virtual void update();
 	virtual void draw();
 	virtual void touchesBegan(TouchEvent event);
+    /*
 	float mFreqTarget;
 	float mPhase;
 	float mPhaseAdjust;
@@ -36,11 +41,15 @@ public:
     double secs;
     bool paused;
 	float mMaxFreq;
+     */
 private:
+	vector<Capture>	mCaptures;
+	gl::Texture mTexture;
     std::vector<int> notes;
 };
 
 void fugueApp::setup() {
+    /*
     notes.resize(S);
     mMaxFreq = 2000.0f;
 	mFreqTarget = 0.0f;
@@ -50,9 +59,19 @@ void fugueApp::setup() {
     paused = false;
 	audio::Output::play(audio::createCallback(this, &fugueApp::sineWave));
     std::fill(notes.begin(), notes.end(), 0);
-    gl::setMatricesWindow(getWindowSize());
+    */
+     gl::setMatricesWindow(getWindowSize());
+    
+    
+	vector<Capture::DeviceRef> devices(Capture::getDevices());
+    Capture::DeviceRef device = devices[0];
+    if(device->checkAvailable()) {
+        mCaptures.push_back(Capture(640, 960, device));
+        mCaptures.back().start();
+    }
 }
 
+/*
 void fugueApp::sineWave( uint64_t inSampleOffset, uint32_t ioSampleCount, audio::Buffer32f *ioBuffer ) {
     mPhaseAdjust = mFreqTarget / 44100.0f;
 	for (int i = 0; i < ioSampleCount; i++) {
@@ -64,8 +83,10 @@ void fugueApp::sineWave( uint64_t inSampleOffset, uint32_t ioSampleCount, audio:
 		ioBuffer->mData[i*ioBuffer->mNumberChannels + 1] = val;
 	}
 }
+ */
 
 void fugueApp::touchesBegan(TouchEvent event) {
+    /*
     double ty = event.getTouches()[0].getY();
     double tx = event.getTouches()[0].getX();
     if (ty > (BS * Y)) {
@@ -82,9 +103,11 @@ void fugueApp::touchesBegan(TouchEvent event) {
             notes[idx] = 0;
         }
     }
+     */
 }
 
 void fugueApp::draw() {
+    /*
     spb = 60.0f / bpm;
     if (!paused) {
         secs = getElapsedSeconds();
@@ -155,10 +178,21 @@ void fugueApp::draw() {
             }
         }
     }
+     */
+    gl::draw(mTexture, Rectf(0, 0, 640, 960));
 }
 
 void fugueApp::resize(ResizeEvent event) { }
 
-void fugueApp::update() { }
+void fugueApp::update() {
+	for (vector<Capture>::iterator cIt = mCaptures.begin();
+         cIt != mCaptures.end();
+         ++cIt) {
+		if( cIt->checkNewFrame() ) {
+			Surface8u surf = cIt->getSurface();
+			mTexture = gl::Texture(surf);
+		}
+	}
+}
 
 CINDER_APP_COCOA_TOUCH(fugueApp, RendererGl)
